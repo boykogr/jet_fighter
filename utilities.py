@@ -1,5 +1,6 @@
 from pygame.image import load
 from pathlib import Path
+from pygame.mixer import Sound
 
 
 def load_sprite(name, alpha=True):
@@ -10,3 +11,8 @@ def load_sprite(name, alpha=True):
         return sprite.convert_alpha()
 
     return sprite.convert()
+
+
+def load_sound(name):
+    filename = Path(__file__).parent / Path('assets/sounds/' + name + '.ogg')
+    return Sound(filename)
