@@ -4,7 +4,6 @@ import asyncio
 from models import Plane, Missile, CruiseMissile, Drone, Explosion, Bullets, Balloon
 from screens import Intro, Menu, Pause, Cursor, Hud, Points, Message, FPS, Timer
 from utilities import load_sprite, load_sound
-import timeit
 
 
 class JetFighter:
@@ -66,7 +65,12 @@ class JetFighter:
         # Pre-initialize all the bullet objects and add them to the inactive pool - max 3 bullets
         self.bullets = []
 
-        self.explosions = []
+        # Pre-initialize all the explosion objects and add them to the inactive pool - max 10 explosions
+        self.explosions_pool = [Explosion((0, 0), self.sounds) for _ in range(10)]
+
+        self.active_explosions = []
+
+        # self.explosions = []
 
         self.message = Message()
 
@@ -155,13 +159,13 @@ class JetFighter:
 
     @property
     def game_objects(self):
-        return [*self.active_enemies, self.plane, *self.explosions, *self.bullets, *self.active_balloons]
+        return [*self.active_enemies, self.plane, *self.active_explosions, *self.bullets, *self.active_balloons]
 
     def _game_logic(self):
         if self.game_state == 'Intro' or self.game_state == 'Menu' or self.game_state == 'Pause':
             return
+        # Add new objects
         if self.level == 1:
-            # Add new objects
             self.get_inactive_objects(missiles=3, cruise=2, drones=1, balloons=3)
         for obj in self.game_objects:
             obj.move(self.screen)
@@ -171,7 +175,7 @@ class JetFighter:
                 obj.rotate(mouse_position)
             else:
                 obj.rotate(self.plane.position)
-            if obj not in self.explosions and obj not in self.active_balloons:
+            if obj.has_trail:
                 obj.trail()
         for bullet in self.bullets:
             if bullet.outside():
@@ -181,7 +185,8 @@ class JetFighter:
                     self.active_enemies.remove(missile)
                     missile.active = False
                     self.bullets.remove(bullet)
-                    self.explosions.append(Explosion(missile.position, self.sounds))
+                    self.get_inactive_explosion(missile.position, self.sounds)
+                    # self.explosions.append(Explosion(missile.position, self.sounds))
                     self.points.calculate('bullet')
                     break
             for balloon in self.active_balloons:
@@ -189,14 +194,16 @@ class JetFighter:
                     self.active_balloons.remove(balloon)
                     balloon.active = False
                     self.bullets.remove(bullet)
-                    self.explosions.append(Explosion(balloon.position, self.sounds))
+                    self.get_inactive_explosion(balloon.position, self.sounds)
+                    # self.explosions.append(Explosion(balloon.position, self.sounds))
                     self.points.calculate('bullet')
                     break
         for balloon in self.active_balloons:
             if balloon.collides_with(self.plane):
                 self.active_balloons.remove(balloon)
                 balloon.active = False
-                self.explosions.append(Explosion(balloon.position, self.sounds))
+                self.get_inactive_explosion(self.plane.position, self.sounds)
+                # self.explosions.append(Explosion(balloon.position, self.sounds))
                 self.points.calculate('balloon')
                 break
             balloon.calculate()
@@ -213,7 +220,8 @@ class JetFighter:
                 self.message.take(self.plane.hit)
                 self.active_enemies.remove(missile)
                 missile.active = False
-                self.explosions.append(Explosion(missile.position, self.sounds))
+                self.get_inactive_explosion(missile.position, self.sounds)
+                # self.explosions.append(Explosion(missile.position, self.sounds))
                 self.hit_slow_time = 60
                 self.screen_shake = 30
                 self.dodge = False
@@ -235,7 +243,8 @@ class JetFighter:
                         missile.active = False
                         self.active_enemies.remove(other)
                         other.active = False
-                        self.explosions.append(Explosion(missile.position, self.sounds))
+                        self.get_inactive_explosion(missile.position, self.sounds)
+                        # self.explosions.append(Explosion(missile.position, self.sounds))
                         self.points.calculate('missile')
                         break
         if self.hit_slow_time:
@@ -259,7 +268,6 @@ class JetFighter:
             # show OS cursor
             if not pygame.mouse.get_visible():
                 pygame.mouse.set_visible(True)
-            # self.cursor.draw(self.screen)
             # FPS
             self.fps_display.draw(self.screen, self.clock.get_fps())
             pygame.display.flip()
@@ -284,7 +292,7 @@ class JetFighter:
             for obj in self.game_objects:
                 # obj.draw(self.screen)
                 if obj.draw(self.screen) == -1:
-                    self.explosions.remove(obj)
+                    self.active_explosions.remove(obj)
             # HUD
             self.hud.draw(self.screen, self.plane)
             # Balloons
@@ -311,8 +319,8 @@ class JetFighter:
             else:
                 pygame.display.flip()
             # For debug
-            self.clock.tick(0)
-            # self.clock.tick(self.fps)
+            # self.clock.tick(0)
+            self.clock.tick(self.fps)
 
     def get_inactive_objects(self, missiles, cruise, drones, balloons):
         for missile in self.enemy_pool:
@@ -340,4 +348,13 @@ class JetFighter:
                     new_balloon = balloon
                     if new_balloon:
                         new_balloon.reset(self.screen)
+                    break
+
+    def get_inactive_explosion(self, position, sound):
+        for explosion in self.explosions_pool:
+            if not explosion.active:
+                self.active_explosions.append(explosion)
+                new_explosion = explosion
+                if new_explosion:
+                    new_explosion.reset(position, sound)
                     break

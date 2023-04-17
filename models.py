@@ -36,6 +36,7 @@ class Plane(GameObject):
     def __init__(self, position):
         self.direction = Vector2(DIRECTION_UP)
         super().__init__(position, load_sprite('plane'), Vector2(0))
+        self.has_trail = True
         self.trail_sprites = []
         self.trail_counter = 0
         self.sprite_0 = load_sprite('plane')
@@ -47,6 +48,8 @@ class Plane(GameObject):
         self.trail_sprite = load_sprite('trail')
         self.trail_h1 = load_sprite('trail_h1')
         self.trail_h2 = load_sprite('trail_h2')
+        # Init surface for all the trails to be blit on for better performance.
+        self.trail_surface = pygame.Surface((800, 600), pygame.SRCALPHA)
 
         self.fly_sound = load_sound('plane')
         self.fly_sound.set_volume(0.2)
@@ -192,8 +195,10 @@ class Missile(GameObject):
     def __init__(self, surface, plane_position):
         self.direction = Vector2(DIRECTION_UP)
         super().__init__(self.random_spawn_position(surface, plane_position), load_sprite('missile1'), Vector2(0))
+        self.has_trail = True
         self.trail_sprites = []
         self.trail_counter = 0
+        self.trail_sprite = load_sprite('trail1')
         self.add_trail = True
         self.collision_points = [self.position + self.direction * 9, self.position + self.direction * -9]
         self.radius = 6
@@ -213,9 +218,8 @@ class Missile(GameObject):
 
     def trail(self):
         # Create a new trail sprite
-        trail_sprite = load_sprite('trail1')
         angle = self.direction.angle_to(DIRECTION_UP)
-        rotated_sprite = rotozoom(trail_sprite, angle, 1.0)
+        rotated_sprite = rotozoom(self.trail_sprite, angle, 1.0)
         rotated_sprite_size = Vector2(rotated_sprite.get_size())
         position = round(self.position - rotated_sprite_size * 0.5)
 
@@ -276,8 +280,10 @@ class CruiseMissile(Missile):
         self.direction = Vector2(DIRECTION_UP)
         super(Missile, self).__init__(self.random_spawn_position(surface, plane_position),
                                       load_sprite('missile2'), Vector2(0))
+        self.has_trail = True
         self.trail_sprites = []
         self.trail_counter = 0
+        self.trail_sprite = load_sprite('trail1')
         self.add_trail = True
         self.collision_points = [self.position]
         # self.collision_points = [self.position + self.direction * 9, self.position + self.direction * -9]
@@ -340,11 +346,8 @@ class Drone(Missile):
         self.direction = Vector2(DIRECTION_UP)
         super(Missile, self).__init__(self.random_spawn_position(surface, plane_position),
                                       load_sprite('drone1'), Vector2(0))
-        self.trail_sprites = []
-        self.trail_counter = 0
-        self.add_trail = False
+        self.has_trail = False
         self.collision_points = [self.position]
-        # self.collision_points = [self.position + self.direction * 9, self.position + self.direction * -9]
         self.radius = 6
         self.sprite1 = load_sprite('drone1')
         self.sprite2 = load_sprite('drone2')
@@ -370,6 +373,7 @@ class Balloon(GameObject):
                            random.randrange(50, surface.get_height() - 120))
         self.direction = Vector2(DIRECTION_UP)
         super().__init__(position, load_sprite('balloon'), Vector2(0))
+        self.has_trail = False
         self.radius = 1
         self.appear = False
         self.inflate = True
@@ -431,7 +435,6 @@ class Balloon(GameObject):
 
 class Explosion(GameObject):
     ACCELERATION = 0.5
-    exists = 120
 
     def __init__(self, object_position, sound):
         self.direction = Vector2(DIRECTION_UP)
@@ -443,10 +446,24 @@ class Explosion(GameObject):
         self.sprite5 = load_sprite('explosion5')
         self.sprite6 = load_sprite('explosion6')
         self.sprite7 = load_sprite('explosion7')
+        self.explosion_sound = load_sound('explosion')
+        self.explosion_sound.set_volume(0.5)
         if sound:
-            self.explosion_sound = load_sound('explosion')
-            self.explosion_sound.set_volume(0.5)
+            self.sound = True
+        else:
+            self.sound = False
+        self.has_trail = False
+        self.active = False
+        self.exists = 120
+
+    def reset(self, position, sound):
+        self.direction = Vector2(DIRECTION_UP)
+        self.position = position
+        self.sound = sound
+        if self.sound:
             self.explosion_sound.play()
+        self.active = True
+        self.exists = 120
 
     def rotate(self, mouse_position):
         self.direction.rotate_ip(1)
@@ -469,6 +486,7 @@ class Explosion(GameObject):
         if self.exists < 40:
             self.sprite = self.sprite7
         if self.exists <= 0:
+            self.active = False
             return -1
         angle = 1
         rotated_surface = rotozoom(self.sprite, angle, 1.0)
@@ -489,7 +507,7 @@ class Bullets(GameObject):
             self.explosion_sound = load_sound('machine_gun')
             self.explosion_sound.set_volume(0.2)
             self.explosion_sound.play()
-
+        self.has_trail = False
         self.direction = Vector2(direction)
         self.position = position
         self.speed = self.ACCELERATION
@@ -515,5 +533,3 @@ class Bullets(GameObject):
     def rotate(self, plane):
         pass
 
-    def trail(self):
-        pass
