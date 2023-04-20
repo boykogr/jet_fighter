@@ -2,7 +2,7 @@ import pygame
 import random
 import asyncio
 from models import Plane, Missile, CruiseMissile, Drone, Explosion, Bullets, Balloon
-from screens import Intro, Menu, Pause, Cursor, Hud, Points, Message, FPS, Timer
+from screens import Fade, Intro, Menu, Pause, Cursor, Hud, Points, Message, FPS, Timer, PlaneStart, Mission
 from utilities import load_sprite, load_sound
 
 
@@ -32,9 +32,15 @@ class JetFighter:
 
         self.level = 1
 
+        self.fade = Fade(self.screen)
+
         self.intro = Intro(self.screen)
 
-        self.menu = Menu(self.screen)
+        self.plane_start = PlaneStart(self.screen)
+
+        self.menu = Menu(self.screen, self.plane_start)
+
+        self.mission = Mission(self.screen, self.plane_start)
 
         self.pause = Pause()
 
@@ -98,13 +104,32 @@ class JetFighter:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     quit()
-                if event.type == pygame.KEYDOWN:
+                if event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
                     self.game_state = 'Menu'
+                    self.fade.reset()
                     return
-        if self.game_state == 'Menu':
-            if self.menu.menu_logic() == 'Game':
+        elif self.game_state == 'Menu':
+            menu_command = self.menu.menu_logic()
+            if menu_command == 'Mission':
                 self.game_state = 'Game'
                 return
+            if menu_command == 'switch_sound':
+                if self.sounds:
+                    pygame.mixer.pause()
+                    self.sounds = False
+                else:
+                    pygame.mixer.unpause()
+                    self.sounds = True
+                if self.music:
+                    self.background_music.fadeout(180)
+                    self.music = False
+                else:
+                    self.music = True
+                    self.background_music.play(-1)
+        elif self.game_state == 'Mission':
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    quit()
         elif self.game_state == 'Game':
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -162,11 +187,12 @@ class JetFighter:
         return [*self.active_enemies, self.plane, *self.active_explosions, *self.bullets, *self.active_balloons]
 
     def _game_logic(self):
-        if self.game_state == 'Intro' or self.game_state == 'Menu' or self.game_state == 'Pause':
+        if self.game_state == 'Intro' or self.game_state == 'Menu' \
+                or self.game_state == 'Pause' or self.game_state == 'Mission':
             return
         # Add new objects
         if self.level == 1:
-            self.get_inactive_objects(missiles=3, cruise=2, drones=1, balloons=3)
+            self.get_inactive_objects(missiles=1, cruise=1, drones=1, balloons=3)
         for obj in self.game_objects:
             obj.move(self.screen)
             if obj == self.plane:
@@ -256,7 +282,7 @@ class JetFighter:
 
     def _draw(self):
         if self.game_state == 'Intro':
-            if self.intro.draw(self.screen) == 'Menu':
+            if self.intro.draw(self.screen, self.fade) == 'Menu':
                 self.game_state = 'Menu'
             # FPS
             self.fps_display.draw(self.screen, self.clock.get_fps())
@@ -264,7 +290,7 @@ class JetFighter:
             self.clock.tick(self.fps)
             return
         elif self.game_state == 'Menu':
-            self.menu.draw(self.screen)
+            self.menu.draw(self.screen, self.fade)
             # show OS cursor
             if not pygame.mouse.get_visible():
                 pygame.mouse.set_visible(True)
@@ -273,6 +299,12 @@ class JetFighter:
             pygame.display.flip()
             self.clock.tick(self.fps)
             return
+        elif self.game_state == 'Mission':
+            self.mission.draw(self.screen)
+            # FPS
+            self.fps_display.draw(self.screen, self.clock.get_fps())
+            pygame.display.flip()
+            self.clock.tick(self.fps)
         elif self.game_state == 'Pause':
             self.pause.draw(self.screen)
             # show OS cursor
