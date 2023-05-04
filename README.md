@@ -2,6 +2,7 @@
 A fully developed game, written with Python and Pygame. Some  features:
 - The game is playabe on web browsers (at least Chrome on Windows OS). Thanks to PYGBAG.
 - The game has intro screen, menu, help screen, pause feature, end titles and leaderboard.
+- Sounds have been added.
 - Most of the sprites are made by me.
 - Due to the nature of the deployment for web, there is no way to retrieve the leaderboard from the server, so the leaderboard only works locally and get's reset when the browser is reloaded.
 - There are 3 difficulty modes to choose from.
