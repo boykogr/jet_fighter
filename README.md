@@ -11,7 +11,7 @@ A fully developed game, written with Python and Pygame. Some  features:
 
 ## Output
 
-<img src="https://github.com/boykogr/jet_fighter/jet_fighter_demo.gif" width="807" height="439" />
+<img src="https://github.com/boykogr/jet_fighter/blob/main/jet_fighter_demo.gif" width="807" height="439" />
 
 ## Live game
 
