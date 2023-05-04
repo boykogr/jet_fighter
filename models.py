@@ -50,12 +50,20 @@ class Plane(GameObject):
         self.trail_h2 = load_sprite('trail_h2')
         # Init surface for all the trails to be blit on for better performance.
         self.trail_surface = pygame.Surface((800, 600), pygame.SRCALPHA)
-
+        self.sounds = False
         self.fly_sound = load_sound('plane')
-        self.fly_sound.set_volume(0.2)
+        # self.fly_sound.set_volume(0.2)
+        self.fly_sound.set_volume(0)
         self.fly_sound.play(-1)
         self.thrust_sound = load_sound('thrust')
-        self.thrust_sound.set_volume(0.1)
+        self.thrust_sound.set_volume(1)
+        self.thrust_playing = False
+        self.heartbeat_sound = load_sound('heartbeat')
+        self.heartbeat_sound.set_volume(0.5)
+        self.heartbeat_counter = 0
+        self.swoosh_sound = load_sound('swoosh')
+        self.swoosh_sound.set_volume(0.5)
+        self.swoosh_counter = 0
 
         self.fuel = 60
         self.speed = self.ACCELERATION
@@ -64,6 +72,18 @@ class Plane(GameObject):
         self.radius = 13
         self.hit = 0
 
+    def reset(self):
+        self.ROTATION_SPEED = 5
+        self.ACCELERATION = 2.5
+        self.position = Vector2((400, 300))
+        self.trail_sprites = []
+        self.trail_counter = 0
+        self.fuel = 60
+        self.speed = self.ACCELERATION
+        self.focus = 60
+        self.hit = 0
+        self.heartbeat_counter = 0
+    
     def dodge(self, other):
         distances = [point.distance_to(other_point)
                      for point in self.collision_points
@@ -133,9 +153,27 @@ class Plane(GameObject):
         self.velocity = self.direction * self.speed
         self.position = self.position + self.velocity
 
-    def thrust(self, thrusters=True, sound=True):
-        if sound:
+    def heartbeat(self, sound):
+        self.sounds = sound
+        if self.sounds:
+            if self.heartbeat_counter == 0:
+                self.heartbeat_sound.play()
+            self.heartbeat_counter += 1
+            if self.heartbeat_counter == 60:
+                self.heartbeat_counter = 0
+
+    def swoosh(self, sound):
+        self.sounds = sound
+        if self.sounds:
+            if self.swoosh_counter == 0:
+                self.swoosh_sound.play()
+            self.swoosh_counter += 1
+
+    def thrust(self, thrusters, sound):
+        self.sounds = sound
+        if self.sounds and not self.thrust_playing:
             self.thrust_sound.play()
+            self.thrust_playing = True
         self.fuel -= 1
         if thrusters:
             if self.fuel > 0:
@@ -155,6 +193,7 @@ class Plane(GameObject):
                 self.sprite = self.sprite_0
 
     def refuel(self):
+        self.thrust_playing = False
         if self.fuel < 60:
             self.speed = self.ACCELERATION
             self.fuel += 0.5
@@ -175,6 +214,7 @@ class Plane(GameObject):
         else:
             if self.focus < 120:
                 self.focus += 1
+        self.swoosh_counter = 0
 
     def draw(self, surface):
         angle = self.direction.angle_to(DIRECTION_UP)
@@ -211,10 +251,19 @@ class Missile(GameObject):
             position = Vector2(840, random.randrange(surface.get_height()))
         return position
 
-    def reset(self, surface, plane_position):
+    def set(self, surface, plane_position):
         self.direction = Vector2(DIRECTION_UP)
         self.position = Vector2(self.random_spawn_position(surface, plane_position))
         self.active = True
+        self.trail_sprites = []
+        self.trail_counter = 0
+
+    def reset(self, surface, plane_position):
+        self.direction = Vector2(DIRECTION_UP)
+        self.position = Vector2(self.random_spawn_position(surface, plane_position))
+        self.active = False
+        self.trail_sprites = []
+        self.trail_counter = 0
 
     def trail(self):
         # Create a new trail sprite
@@ -436,7 +485,7 @@ class Balloon(GameObject):
 class Explosion(GameObject):
     ACCELERATION = 0.5
 
-    def __init__(self, object_position, sound):
+    def __init__(self, object_position):
         self.direction = Vector2(DIRECTION_UP)
         super().__init__(object_position, load_sprite('explosion1'), Vector2(0))
 
@@ -448,10 +497,7 @@ class Explosion(GameObject):
         self.sprite7 = load_sprite('explosion7')
         self.explosion_sound = load_sound('explosion')
         self.explosion_sound.set_volume(0.5)
-        if sound:
-            self.sound = True
-        else:
-            self.sound = False
+        self.sound = False
         self.has_trail = False
         self.active = False
         self.exists = 120
@@ -499,20 +545,28 @@ class Explosion(GameObject):
 class Bullets(GameObject):
     ACCELERATION = 10
 
-    def __init__(self, plane_position, plane_direction, sound):
+    def __init__(self, plane_position, plane_direction):
         position = plane_position
         direction = plane_direction
         super().__init__(position, load_sprite('bullets'), Vector2(0))
-        if sound:
-            self.explosion_sound = load_sound('machine_gun')
-            self.explosion_sound.set_volume(0.2)
-            self.explosion_sound.play()
+        self.bullet_sound = load_sound('machine_gun')
+        self.bullet_sound.set_volume(0.2)
+        self.sound = False
         self.has_trail = False
+        self.active = False
         self.direction = Vector2(direction)
         self.position = position
         self.speed = self.ACCELERATION
         self.collision_points = [self.position + self.direction * 9]
         self.radius = 6
+
+    def reset(self, sound, plane_position, plane_direction):
+        self.direction = Vector2(plane_direction)
+        self.position = plane_position
+        self.sound = sound
+        if self.sound:
+            self.bullet_sound.play()
+        self.active = True
 
     def move(self, surface):
         self.velocity = self.direction * self.speed
@@ -532,4 +586,3 @@ class Bullets(GameObject):
 
     def rotate(self, plane):
         pass
-
